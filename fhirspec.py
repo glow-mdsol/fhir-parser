@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import io
+import keyword
 import os
 import re
 import sys
@@ -194,8 +195,10 @@ class FHIRSpec(object):
         return class_name in self.settings.natives
     
     def safe_property_name(self, prop_name):
-        return self.settings.reservedmap.get(prop_name, prop_name)
-    
+        if keyword.iskeyword(prop_name):
+            return "_" + prop_name
+        return prop_name
+
     def safe_enum_name(self, enum_name, ucfirst=False):
         assert enum_name, "Must have a name"
         name = self.settings.enum_map.get(enum_name, enum_name)
@@ -206,7 +209,7 @@ class FHIRSpec(object):
                 name = name[:1].lower() + name[1:]
         else:
             name = '_'.join(parts)
-        return self.settings.reservedmap.get(name, name)
+        return self.safe_property_name(name)
     
     def json_class_for_class_name(self, class_name):
         return self.settings.jsonmap.get(class_name, self.settings.jsonmap_default)
