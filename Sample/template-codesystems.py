@@ -8,10 +8,12 @@
 #  THIS HAS BEEN ADAPTED FROM Swift Enums WITHOUT EVER BEING IMPLEMENTED IN
 #  Python, FOR DEMONSTRATION PURPOSES ONLY.
 #
-import enum
+
+from enum import Enum
+
 {% for system in systems %}{% if system.generate_enum %}
 
-class {{ system.name }}(enum.Enum) {
+class {{ system.name }}(Enum):
 	"""
 	{{ system.definition.description|wordwrap(width=120, wrapstring="\n") }}
 
@@ -26,5 +28,4 @@ class {{ system.name }}(enum.Enum) {
     """
     {{ code.name }} = "{{ code.code }}"
 	{%- endfor %}
-}
 {% endif %}{% endfor %}
