@@ -13,6 +13,7 @@ from logger import logger
 import fhirclass
 import fhirunittest
 import fhirrenderer
+import keyword
 
 # allow to skip some profiles by matching against their url (used while WiP)
 skip_because_unsupported = [
@@ -194,7 +195,11 @@ class FHIRSpec(object):
         return class_name in self.settings.natives
     
     def safe_property_name(self, prop_name):
-        return self.settings.reservedmap.get(prop_name, prop_name)
+        _prop = self.settings.reservedmap.get(prop_name, prop_name)
+        # default to munging keywords if encountered
+        if keyword.iskeyword(_prop):
+            return "_" + _prop
+        return _prop
     
     def safe_enum_name(self, enum_name, ucfirst=False):
         assert enum_name, "Must have a name"
@@ -206,7 +211,11 @@ class FHIRSpec(object):
                 name = name[:1].lower() + name[1:]
         else:
             name = '_'.join(parts)
-        return self.settings.reservedmap.get(name, name)
+        _name = self.settings.reservedmap.get(name, name)
+        # default to munging keywords if encountered
+        if keyword.iskeyword(_name):
+            _name = "_" + _name
+        return _name
     
     def json_class_for_class_name(self, class_name):
         return self.settings.jsonmap.get(class_name, self.settings.jsonmap_default)
