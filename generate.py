@@ -5,10 +5,8 @@
 #  Supply "-f" to force a redownload of the spec
 #  Supply "-d" to load and parse but not write resources
 #  Supply "-l" to only download the spec
+import importlib
 
-import sys
-
-import settings
 import fhirloader
 import fhirspec
 import argparse
@@ -23,8 +21,12 @@ if '__main__' == __name__:
                         help="Load and parse but not write resources")
     parser.add_argument(["-l", "--load-only"], default=False, action="store_true", dest="load_only",
                         help="Only Download the Specification")
+    parser.add_argument(["-s", "--settings"], default='settings', action="store", dest="settings",
+                        help="Specify what settings file to use")
 
     opts = parser.parse_args()
+
+    settings = importlib.import_module(opts.settings)
 
     # assure we have all files
     loader = fhirloader.FHIRLoader(settings, _cache)
