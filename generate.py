@@ -11,21 +11,27 @@ import sys
 import settings
 import fhirloader
 import fhirspec
+import argparse
 
 _cache = 'downloads'
 
 
 if '__main__' == __name__:
-    force = len(sys.argv) > 1 and '-f' in sys.argv
-    dry = len(sys.argv) > 1 and ('-d' in sys.argv or '--dry-run' in sys.argv)
-    load_only = len(sys.argv) > 1 and ('-l' in sys.argv or '--load-only' in sys.argv)
-    
+    parser = argparse.ArgumentParser("Generate the FHIR Models")
+    parser.add_argument("-f", default=False, action="store_true", dest="force", help="Force rebuild of models")
+    parser.add_argument(["-d", "--dry-run"], default=False, action="store_true", dest="dry",
+                        help="Load and parse but not write resources")
+    parser.add_argument(["-l", "--load-only"], default=False, action="store_true", dest="load_only",
+                        help="Only Download the Specification")
+
+    opts = parser.parse_args()
+
     # assure we have all files
     loader = fhirloader.FHIRLoader(settings, _cache)
-    spec_source = loader.load(force)
+    spec_source = loader.load(opts.force)
     
     # parse
-    if not load_only:
+    if not opts.load_only:
         spec = fhirspec.FHIRSpec(spec_source, settings)
-        if not dry:
+        if not opts.dry:
             spec.write()
