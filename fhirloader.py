@@ -4,7 +4,10 @@
 import io
 import os.path
 from logger import logger
+import fhirdirectory
 
+# Defer to the current version if missing
+DEFAULT_FHIR_URL = 'http://hl7.org/fhir/index.html'
 
 class FHIRLoader(object):
     """ Class to download the files needed for the generator.
@@ -19,9 +22,23 @@ class FHIRLoader(object):
     
     def __init__(self, settings, cache):
         self.settings = settings
-        self.base_url = settings.specification_url
         self.cache = cache
-    
+        self._versions = fhirdirectory.get_versions()
+
+    @property
+    def base_url(self):
+        if self.settings.specification_url:
+            # Pick by URL
+            return self.settings.specification_url
+        elif self.settings.specification_version:
+            # Pick by Designation (eg 3.3.0 or current)
+            for version in self._versions:
+                if version.Version == self.settings.specification_version:
+                    return version.Link
+            else:
+                logger.warning("Version {} not found; choosing default".format(self.settings.specification_version))
+        return DEFAULT_FHIR_URL
+
     def load(self, force=False):
         """ Makes sure all the files needed have been downloaded.
         
