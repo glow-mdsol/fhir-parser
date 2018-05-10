@@ -4,10 +4,8 @@
 import io
 import os.path
 from logger import logger
-import fhirdirectory
+from six.moves.urllib.parse import urljoin
 
-# Defer to the current version if missing
-DEFAULT_FHIR_URL = 'http://hl7.org/fhir/index.html'
 
 class FHIRLoader(object):
     """ Class to download the files needed for the generator.
@@ -22,22 +20,17 @@ class FHIRLoader(object):
     
     def __init__(self, settings, cache):
         self.settings = settings
-        self.cache = cache
-        self._versions = fhirdirectory.get_versions()
+        if settings.versioned_models:
+            # cache => downloads/3_3_1/
+            self.cache = os.path.join(cache, settings.path_safe_version)
+        else:
+            # cache => downloads/
+            self.cache = cache
 
     @property
     def base_url(self):
-        if self.settings.specification_url:
-            # Pick by URL
-            return self.settings.specification_url
-        elif self.settings.specification_version:
-            # Pick by Designation (eg 3.3.0 or current)
-            for version in self._versions:
-                if version.Version == self.settings.specification_version:
-                    return version.Link
-            else:
-                logger.warning("Version {} not found; choosing default".format(self.settings.specification_version))
-        return DEFAULT_FHIR_URL
+        # Pick by URL
+        return self.settings.specification_url
 
     def load(self, force=False):
         """ Makes sure all the files needed have been downloaded.
@@ -47,10 +40,10 @@ class FHIRLoader(object):
         if os.path.isdir(self.cache) and force:
             import shutil
             shutil.rmtree(self.cache)
-        
+
         if not os.path.isdir(self.cache):
             os.mkdir(self.cache)
-        
+
         # check all files and download if missing
         uses_cache = False
         for local, remote in self.__class__.needs.items():
@@ -79,8 +72,9 @@ class FHIRLoader(object):
             downloaded to
         """
         import requests     # import here as we can bypass its use with a manual download
-        
-        url = self.base_url+'/'+filename
+
+        # Use urljoin here
+        url = urljoin(self.base_url, filename)
         path = os.path.join(self.cache, filename)
         
         ret = requests.get(url)
