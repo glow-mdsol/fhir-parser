@@ -7,6 +7,7 @@ import sys
 import glob
 import json
 import os.path
+from six import string_types
 
 from logger import logger
 import fhirclass
@@ -127,12 +128,23 @@ class FHIRUnitTest(object):
                         i = 0
                         for ival in val:
                             idxpath = self.controller.settings.unittest_format_path_index.format(path, i)
+                            if ival is None:
+                                # couple of inconsistent example json files, guard against
+                                logger.error(
+                                    "Error creating Unit test from {} for "
+                                    "{}; Value for {} is None".format(self.filepath, idxpath, key))
+                                continue
+
                             item = FHIRUnitTestItem(self.filepath, idxpath, ival, propclass, True, prop.enum)
                             tests.extend(item.create_tests(self.controller))
                             i += 1
                             if i >= 10:     # let's assume we don't need 100s of unit tests
                                 break
                     else:
+                        if val is None:
+                            logger.error("Error creating Unit test from {}; Value for {} is None".format(self.filepath,
+                                                                                                             key))
+                            continue
                         item = FHIRUnitTestItem(self.filepath, path, val, propclass, False, prop.enum)
                         tests.extend(item.create_tests(self.controller))
         
@@ -176,10 +188,7 @@ class FHIRUnitTestItem(object):
         
         # regular test case; skip string tests that are longer than 200 chars
         else:
-            isstr = isinstance(self.value, str)
-            if not isstr and sys.version_info[0] < 3:       # Python 2.x has 'str' and 'unicode'
-                isstr = isinstance(self.value, basestring)
-            
+            isstr = isinstance(self.value, string_types)
             value = self.value
             if isstr:
                 if len(value) > 200:
