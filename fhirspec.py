@@ -14,6 +14,7 @@ import fhirclass
 import fhirunittest
 import fhirrenderer
 import keyword
+from six.moves import configparser
 
 # allow to skip some profiles by matching against their url (used while WiP)
 skip_because_unsupported = [
@@ -202,12 +203,21 @@ class FHIRSpec(object):
     
     def class_name_is_native(self, class_name):
         return class_name in self.settings.natives
-    
-    def safe_property_name(self, prop_name):
+
+    def _safe_map(self, prop_name):
+        """
+        Safely handle property names
+        :param prop_name:
+        :return:
+        """
         _prop = self.settings.reservedmap.get(prop_name, prop_name)
         # default to munging keywords if encountered
         if keyword.iskeyword(_prop):
             return "_" + _prop
+        return _prop
+
+    def safe_property_name(self, prop_name):
+        _prop = self._safe_map(prop_name)
         return _prop
     
     def safe_enum_name(self, enum_name, ucfirst=False):
@@ -220,24 +230,19 @@ class FHIRSpec(object):
                 name = name[:1].lower() + name[1:]
         else:
             name = '_'.join(parts)
-        _name = self.settings.reservedmap.get(name, name)
-        # default to munging keywords if encountered
-        if keyword.iskeyword(_name):
-            _name = "_" + _name
+        _name = self._safe_map(name)
         return _name
     
     def json_class_for_class_name(self, class_name):
         return self.settings.jsonmap.get(class_name, self.settings.jsonmap_default)
-    
-    
+
     # MARK: Unit Tests
     
     def parse_unit_tests(self):
         controller = fhirunittest.FHIRUnitTestController(self)
         controller.find_and_parse_tests(self.directory)
         self.unit_tests = controller.collections
-    
-    
+
     # MARK: Writing Data
     
     def writable_profiles(self):
@@ -250,6 +255,9 @@ class FHIRSpec(object):
         return profiles
     
     def write(self):
+        # Generate the __init__.py and requirements.txt
+        renderer = fhirrenderer.FHIRModuleRenderer(self, self.settings)
+        renderer.render()
         if self.settings.write_resources:
             renderer = fhirrenderer.FHIRStructureDefinitionRenderer(self, self.settings)
             renderer.render()
@@ -283,18 +291,19 @@ class FHIRVersionInfo(object):
         self.year = now.year
         
         self.version = None
+        self.revision = None
+        self.version_date = None
         infofile = os.path.join(directory, 'version.info')
         self.read_version(infofile)
     
     def read_version(self, filepath):
         assert os.path.isfile(filepath)
-        with io.open(filepath, 'r', encoding='utf-8') as handle:
-            text = handle.read()
-            for line in text.split("\n"):
-                if '=' in line:
-                    (n, v) = line.strip().split('=', 2)
-                    if 'FhirVersion' == n:
-                        self.version = v
+        config = configparser.ConfigParser()
+        config.read(filepath)
+        fhir_section = config['FHIR']
+        self.version = fhir_section.get('version', 'Unknown')
+        self.revision = fhir_section.get('revision', 'Unknown')
+        self.version_date = fhir_section.get('date', 'Unknown')
 
 
 class FHIRValueSet(object):
@@ -305,45 +314,47 @@ class FHIRValueSet(object):
         self.spec = spec
         self.definition = set_dict
         self._enum = None
-    
+
     @property
     def enum(self):
         """ Returns FHIRCodeSystem if this valueset can be represented by one.
         """
         if self._enum is not None:
             return self._enum
-        
+
         compose = self.definition.get('compose')
         if compose is None:
             raise Exception("Currently only composed ValueSets are supported")
         if 'exclude' in compose:
             raise Exception("Not currently supporting 'exclude' on ValueSet")
-        include = compose.get('include')
-        if 1 != len(include):
-            logger.warn("Ignoring ValueSet with more than 1 includes ({}: {})".format(len(include), include))
-            return None
-        
-        system = include[0].get('system')
-        if system is None:
-            return None
-        
-        # alright, this is a ValueSet with 1 include and a system, is there a CodeSystem?
-        cs = self.spec.codesystem_with_uri(system)
-        if cs is None or not cs.generate_enum:
-            return None
-        
-        # do we only allow specific concepts?
-        restricted_to = []
-        concepts = include[0].get('concept')
-        if concepts is not None:
-            for concept in concepts:
-                assert 'code' in concept
-                restricted_to.append(concept['code'])
-        
-        self._enum = {
-            'name': cs.name,
-            'restricted_to': restricted_to if len(restricted_to) > 0 else None,
-        }
+        includes = compose.get('include')
+        for include in includes:
+            if self._enum is not None:
+                # If it's set, then we skip others
+                break
+            # Iterate over the includes, to see if we have one that is an internal
+            # NOTE: there can be cases where there are more than one internal CodeSystems
+            system = include.get('system')
+            if system is None:
+                continue
+
+            # alright, this is a ValueSet with 1 include and a system, is there a CodeSystem?
+            cs = self.spec.codesystem_with_uri(system)
+            if cs is None or not cs.generate_enum:
+                continue
+
+            # do we only allow specific concepts?
+            restricted_to = []
+            concepts = include.get('concept')
+            if concepts is not None:
+                for concept in concepts:
+                    assert 'code' in concept
+                    restricted_to.append(concept['code'])
+            # if we hit one we take it, need to work out how to handle mu
+            self._enum = {
+                'name': cs.name,
+                'restricted_to': restricted_to if len(restricted_to) > 0 else None,
+            }
         return self._enum
 
 
@@ -364,7 +375,7 @@ class FHIRCodeSystem(object):
         self.generate_enum = False
         concepts = self.definition.get('concept', [])
         
-        if resource.get('experimental'):
+        if resource.get('experimental') and self.spec.settings.expose_experimental is False:
             return
         self.generate_enum = 'complete' == resource['content']
         if not self.generate_enum:
