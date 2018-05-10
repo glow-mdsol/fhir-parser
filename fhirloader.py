@@ -42,7 +42,7 @@ class FHIRLoader(object):
             shutil.rmtree(self.cache)
 
         if not os.path.isdir(self.cache):
-            os.mkdir(self.cache)
+            os.makedirs(self.cache)
 
         # check all files and download if missing
         uses_cache = False
