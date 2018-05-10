@@ -68,6 +68,7 @@ enum_map = {
     '>': 'gt',
     '>=': 'gte',
     '*': 'max',
+    '!=': 'ne'
 }
 
 # If you want to give specific names to enums based on their URI
