@@ -4,19 +4,33 @@
 # make them platform independent.
 
 from Default.mappings import *
+import os
 
-
-# Base URL for where to load specification data from
-specification_url = 'http://hl7.org/fhir/2018May/'
+# Base URL for where to load specification data from, supply this or the version
+# specification_url = 'http://hl7.org/fhir/2018May/'
+specification_version = "last commit"
 #specification_url = 'http://build.fhir.org'
+
+# Expose Experimental Resources/ValueSystems
+expose_experimental = True
 
 # In which directory to find the templates. See below for settings that start with `tpl_`: these are the template names.
 tpl_base = 'Sample'
 
+# Qualify the Cache and Models with a version
+versioned_models = True
+
+# Base Directory for the Outputted Model
+target_base = os.path.join('..', 'models')
+
+# Make the models importable
+write_init = True
+tpl_init_source = 'template-init.py'
+
 # Whether and where to put the generated class models
 write_resources = True
 tpl_resource_source = 'template-resource.py'          # the template to use as source when writing resource implementations for profiles
-tpl_resource_target = '../models'                     # target directory to write the generated class files to
+tpl_resource_target = ''                     # target directory to write the generated class files to
 tpl_resource_target_ptrn = '{}.py'                    # target class file name pattern, with one placeholder (`{}`) for the class name
 tpl_codesystems_source = 'template-codesystems.py'    # the template to use as source when writing enums for CodeSystems; can be `None`
 tpl_codesystems_target_name = 'codesystems.py'        # the filename to use for the generated code systems and value sets (in `tpl_resource_target`)
@@ -24,7 +38,7 @@ tpl_codesystems_target_name = 'codesystems.py'        # the filename to use for 
 # Whether and where to put the factory methods and the dependency graph
 write_factory = True
 tpl_factory_source = 'template-elementfactory.py'       # the template to use for factory generation
-tpl_factory_target = '../models/fhirelementfactory.py'  # where to write the generated factory to
+tpl_factory_target = 'fhirelementfactory.py'  # where to write the generated factory to
 write_dependencies = False
 tpl_dependencies_source = 'template-dependencies.json'  # template used to render the JSON dependency graph
 tpl_dependencies_target = './dependencies.json'         # write dependency JSON to project root
@@ -32,7 +46,7 @@ tpl_dependencies_target = './dependencies.json'         # write dependency JSON 
 # Whether and where to write unit tests
 write_unittests = True
 tpl_unittest_source = 'template-unittest.py'    # the template to use for unit test generation
-tpl_unittest_target = '../models'               # target directory to write the generated unit test files to
+tpl_unittest_target = ''                        # target directory to write the generated unit test files to
 tpl_unittest_target_ptrn = '{}_tests.py'        # target file name pattern for unit tests; the one placeholder (`{}`) will be the class name
 unittest_copyfiles = []                         # array of file names to copy to the test directory `tpl_unittest_target` (e.g. unit test base classes)
 
@@ -55,7 +69,10 @@ backbone_class_adds_parent = True          # if True, backbone class names prepe
 manual_profiles = [
     ('Sample/fhirabstractbase.py', 'fhirabstractbase', [
         'boolean',
-        'string', 'base64Binary', 'code', 'id',
+        'string',
+        'base64Binary',
+        'code',
+        'id',
         'decimal', 'integer', 'unsignedInt', 'positiveInt',
         'uri', 'oid', 'uuid',
         'FHIRAbstractBase',
@@ -64,3 +81,4 @@ manual_profiles = [
     ('Sample/fhirreference.py', 'fhirreference', ['FHIRReference']),
     ('Sample/fhirdate.py', 'fhirdate', ['date', 'dateTime', 'instant', 'time']),
 ]
+
