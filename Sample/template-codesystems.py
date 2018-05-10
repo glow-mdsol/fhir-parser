@@ -13,16 +13,26 @@ from enum import Enum
 class CodeSystemValue(Enum):
     """
     Base CodeSystemValue class
+
+    Inheriting from Enum allows us to do things like:
+    >>> _type = SampleCodeSystemValue('type')
     """
 
     @property
     def as_coding_dict(self):
-        return dict(display=self.value, system=self.URL, code=self.name)
+        return dict(display=self.value, system=self.url, code=self.name)
 
     @property
     def text(self):
         return self.value
 
+    @property
+    def url(self):
+        return self.URL.value
+
+    @property
+    def experimental(self):
+        return self.EXPERIMENTAL.value if hasattr(self, "EXPERIMENTAL") else False
 
 {%- for system in systems %}
 {%- if system.generate_enum %}
