@@ -61,7 +61,15 @@ class DirectoryParser(HTMLParser):
         if tag == 'tr':
             self.is_row = False
             if self._current and not self._current['Date'] == 'Version':
-                current = namedtuple("FHIRRelease", self._current.keys())(**self._current)
+                if self._current['Link'] == 'http://hl7.org/fhir/2012Sep/index.htm':
+                    # Aberrant HTML
+                    _current = dict(Link='http://hl7.org/fhir/2012Sep/index.htm',
+                                    Version="0.05",
+                                    Date="Sep 9, 2012",
+                                    Description="1st Draft for Comment (Sept 2012 Ballot)")
+                    current = namedtuple("FHIRRelease", _current.keys())(**_current)
+                else:
+                    current = namedtuple("FHIRRelease", self._current.keys())(**self._current)
                 self._versions.append(current)
         if tag == 'td':
             self.is_col = False
