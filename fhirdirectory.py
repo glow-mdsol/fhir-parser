@@ -34,7 +34,9 @@ class DirectoryParser(HTMLParser):
         self.is_row = False
         self.is_col = False
         self.is_version = False
+        self.is_release = False
         self._versions = []
+        self._current_release = None
         self._current = None
 
     @property
@@ -44,10 +46,13 @@ class DirectoryParser(HTMLParser):
     def handle_starttag(self, tag, attrs):
         if tag == 'tr':
             self.is_row = True
-            self._current = {}
+            # Create the stack
+            self._current = dict()
         _attrs = dict(attrs)
         if tag == 'td' and not 'colspan' in _attrs:
             self.is_col = True
+        if tag == 'td' and 'colspan' in _attrs:
+            self.is_release = True
         if self.is_col and tag == 'a':
             self.is_version = True
             # set the link
@@ -66,13 +71,19 @@ class DirectoryParser(HTMLParser):
                     _current = dict(Link='http://hl7.org/fhir/2012Sep/index.htm',
                                     Version="0.05",
                                     Date="Sep 9, 2012",
-                                    Description="1st Draft for Comment (Sept 2012 Ballot)")
+                                    Description="1st Draft for Comment (Sept 2012 Ballot)",
+                                    Release="DSTU 1 sequence")
                     current = namedtuple("FHIRRelease", _current.keys())(**_current)
                 else:
+                    # Add the release designation
+                    self._current['Release'] = self._current_release
                     current = namedtuple("FHIRRelease", self._current.keys())(**self._current)
                 self._versions.append(current)
         if tag == 'td':
-            self.is_col = False
+            if self.is_release:
+                self.is_release = False
+            if self.is_col:
+                self.is_col = False
         if self.is_version and tag == 'a':
             self.is_version = False
 
@@ -86,6 +97,8 @@ class DirectoryParser(HTMLParser):
                         self._current[attr] = cleandata(data)
                         # only want to set one attribute at a time
                         break
+        if self.is_release:
+            self._current_release = cleandata(data)
 
 
 def get_versions():
