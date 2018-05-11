@@ -272,8 +272,8 @@ def do_wordwrap(environment, s, width=79, break_long_words=True, wrapstring=None
     parameter.  If you set the second parameter to `false` Jinja will not
     split words apart if they are longer than `width`.
     """
-    if s is '':
-        return s
+    if s in ['', None]:
+        return ''
     if not wrapstring:
         wrapstring = environment.newline_sequence
     accumulator = []
