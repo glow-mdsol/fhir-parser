@@ -299,7 +299,7 @@ class FHIRVersionInfo(object):
     def read_version(self, filepath):
         assert os.path.isfile(filepath)
         config = configparser.ConfigParser()
-        config.read(filepath)
+        config.read(filepath, encoding='utf-8-sig')
         fhir_section = config['FHIR']
         self.version = fhir_section.get('version', 'Unknown')
         self.revision = fhir_section.get('revision', 'Unknown')
@@ -544,7 +544,8 @@ class FHIRStructureDefinition(object):
                 if prop_cls_name not in internal and not self.spec.class_name_is_native(prop_cls_name):
                     prop_cls = fhirclass.FHIRClass.with_name(prop_cls_name)
                     if prop_cls is None:
-                        raise Exception('There is no class "{}" for property "{}" on "{}" in {}'.format(prop_cls_name, prop.name, klass.name, self.name))
+                        raise Exception('There is no class "{}" for property '
+                                        '"{}" on "{}" in {}'.format(prop_cls_name, prop.name, klass.name, self.name))
                     else:
                         prop.module_name = prop_cls.module
                         if not prop_cls_name in needed:
