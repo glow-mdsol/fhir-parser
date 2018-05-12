@@ -18,8 +18,7 @@ class CodeSystemValue(Enum):
     >>> _type = SampleCodeSystemValue('type')
     """
 
-    @property
-    def as_coding_dict(self):
+    def as_json(self):
         return dict(display=self.value, system=self.url, code=self.name)
 
     @property
