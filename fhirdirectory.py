@@ -7,10 +7,6 @@ import logging
 logging.basicConfig()
 logger = logging.getLogger(__name__)
 
-# NOTE: current requests does not like the SSL implementation
-#  on hl7.org - this should be updated when TLS1.2 has been implemented
-DIRECTORY_URL = "http://hl7.org/fhir/directory.html"
-
 
 def cleandata(data):
     if data.startswith('('):
@@ -19,10 +15,46 @@ def cleandata(data):
         return data.strip()
 
 
+class FHIRPackageList:
+
+    URL = "http://hl7.org/fhir/package-list.json"
+
+    def __init__(self):
+        self._versions = []
+
+    @property
+    def versions(self):
+        if not self._versions:
+            self.get()
+        return self._versions
+
+    def get(self):
+        """
+        Download the metadata
+        """
+        sess = requests.Session()
+        response = sess.get(self.URL)
+        if response.status_code == 200:
+            content = response.json()
+            for version in content.get('list'):
+                _current = dict(Link=version.get('path'),
+                                Version=version.get('version'),
+                                Date=version.get('date'),
+                                Description=version.get('desc'),
+                                Status=version.get('status'))
+                current = namedtuple("FHIRRelease", _current.keys())(**_current)
+                self._versions.append(current)
+        else:
+            raise ValueError("Unable to retrieve the FHIR Versions")
+
+
 class DirectoryParser(HTMLParser):
     """
     Parses the returned value from http://hl7.org/fhir/directory.html
     """
+    # NOTE: current requests does not like the SSL implementation
+    #  on hl7.org - this should be updated when TLS1.2 has been implemented
+    URL = "http://hl7.org/fhir/directory.html"
 
     ATTR = ('Link', 'Date', 'Version', 'Description')
 
@@ -39,8 +71,19 @@ class DirectoryParser(HTMLParser):
         self._current_release = None
         self._current = None
 
+    def get(self):
+        sess = requests.Session()
+        response = sess.get(self.URL, verify=False)
+        if response.status_code == 200:
+            content = response.content
+            if hasattr(content, 'decode'):
+                content = content.decode('ISO-8859-1')
+            self.feed(content)
+
     @property
     def versions(self):
+        if not self._versions:
+            self.get()
         return self._versions
 
     def handle_starttag(self, tag, attrs):
@@ -57,7 +100,7 @@ class DirectoryParser(HTMLParser):
             self.is_version = True
             # set the link
             if not _attrs.get('href').startswith('http'):
-                link = urljoin(DIRECTORY_URL, _attrs.get('href'))
+                link = urljoin(self.URL, _attrs.get('href'))
             else:
                 link = _attrs.get('href')
             self._current['Link'] = link
@@ -106,14 +149,9 @@ def get_versions():
     Download the versions from the FHIR Directory URL
     :return:
     """
-    sess = requests.Session()
-    response = sess.get(DIRECTORY_URL, verify=False)
-    if response.status_code == 200:
-        content = response.content
-        if hasattr(content, 'decode'):
-            content = content.decode('ISO-8859-1')
-        handler = DirectoryParser()
-        handler.feed(content)
-        return handler.versions
+    package = FHIRPackageList()
+    if package.versions:
+        return package.versions
     else:
-        return {}
+        package = DirectoryParser()
+        return package.versions
