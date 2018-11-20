@@ -33,6 +33,14 @@ class CodeSystemValue(Enum):
     def experimental(self):
         return self.EXPERIMENTAL.value if hasattr(self, "EXPERIMENTAL") else False
 
+    def __str__(self):
+        return self.text
+
+    @property
+    def codeable_concept(self):
+        return codeableconcept.CodeableConcept({'coding': [self.as_dict()],
+                                                'text': self.value})
+
 {%- for system in systems %}
 {%- if system.generate_enum %}
 
