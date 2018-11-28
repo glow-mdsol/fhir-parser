@@ -20,6 +20,7 @@ class FHIRLoader(object):
     
     def __init__(self, settings, cache):
         self.settings = settings
+        logger.info("Settings: Base_URL: {}".format(settings.specification_url))
         if settings.versioned_models:
             # cache => downloads/3_3_1/
             self.cache = os.path.join(cache, settings.path_safe_version)
@@ -30,14 +31,17 @@ class FHIRLoader(object):
     @property
     def base_url(self):
         # Pick by URL
-        return self.settings.specification_url
+        # remember to add the trailing '/'
+        return self.settings.specification_url + "/"
 
-    def load(self, force=False):
+    def load(self, force_download=False, force_cache=False):
         """ Makes sure all the files needed have been downloaded.
         
         :returns: The path to the directory with all our files.
         """
-        if os.path.isdir(self.cache) and force:
+        if force_download: assert not force_cache
+
+        if os.path.isdir(self.cache) and force_download:
             import shutil
             shutil.rmtree(self.cache)
 
@@ -50,6 +54,8 @@ class FHIRLoader(object):
             path = os.path.join(self.cache, local)
             
             if not os.path.exists(path):
+                if force_cache:
+                    raise Exception('Resource missing from cache: {}'.format(local))
                 logger.info('Downloading {}'.format(remote))
                 filename = self.download(remote)
                 
@@ -75,6 +81,7 @@ class FHIRLoader(object):
 
         # Use urljoin here
         url = urljoin(self.base_url, filename)
+        logger.info("Downloading: {}".format(url))
         path = os.path.join(self.cache, filename)
         
         ret = requests.get(url)

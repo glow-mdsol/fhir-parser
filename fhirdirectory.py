@@ -1,6 +1,7 @@
+
 import requests
 from six.moves.html_parser import HTMLParser
-from six.moves.urllib.parse import urljoin
+from six.moves.urllib.parse import urljoin, urlparse
 from collections import namedtuple
 import logging
 
@@ -21,6 +22,7 @@ class FHIRPackageList:
 
     def __init__(self):
         self._versions = []
+        self.implementation_guides = []
 
     @property
     def versions(self):
@@ -37,13 +39,23 @@ class FHIRPackageList:
         if response.status_code == 200:
             content = response.json()
             for version in content.get('list'):
+                parts = urlparse(version.get('path'))   # type: urllib.parse.ParseResult
+                if parts.path == "":
+                    symbol = "latest"
+                else:
+                    symbol = parts.path.split("/")[-1]
                 _current = dict(Link=version.get('path'),
                                 Version=version.get('version'),
                                 Date=version.get('date'),
                                 Description=version.get('desc'),
-                                Status=version.get('status'))
+                                Status=version.get('status'),
+                                Symbol=symbol,
+                                Sequence=version.get('sequence'))
                 current = namedtuple("FHIRRelease", _current.keys())(**_current)
                 self._versions.append(current)
+            # load the implementation guides
+            for ig in content.get("containedIgs"):
+                self.implementation_guides.append(ig)
         else:
             raise ValueError("Unable to retrieve the FHIR Versions")
 
