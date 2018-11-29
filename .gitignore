@@ -9,3 +9,4 @@ venv
 
 # ignore downloads
 /downloads
+output

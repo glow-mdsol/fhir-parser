@@ -9,6 +9,7 @@
 FHIR_VERSION = '{{ info.version }}'
 FHIR_REVISION = '{{ info.revision }}'
 FHIR_VERSION_DATE = '{{ info.version_date }}'
+FHIR_SEQUENCE = '{{ info.sequence }}'
 
 GENERATION_DATE = '{{ info.date }}'
 

@@ -3,6 +3,7 @@
 #
 #  Download and parse FHIR resource definitions
 #  Supply "-f" to force a redownload of the spec
+#  Supply "-c" to force using the cached spec (incompatible with "-f")
 #  Supply "-d" to load and parse but not write resources
 #  Supply "-l" to only download the spec
 
@@ -31,6 +32,7 @@ def infer_version(settings, default_url="http://hl7.org/fhir/index.html"):
     if not hasattr(settings, "versioned_models"):
         # if you don't care about versioned models, let's make it so
         settings.versioned_models = False
+    # Download the version information
     versions = fhirdirectory.get_versions()
     if hasattr(settings, "specification_url"):
         logger.info(
@@ -43,7 +45,7 @@ def infer_version(settings, default_url="http://hl7.org/fhir/index.html"):
                         settings.specification_url, ver.Version
                     )
                 )
-
+                settings.sequence = ver.Sequence
                 settings.fhir_version = ver.Version
                 settings.path_safe_version = ver.Version.replace(".", "_").replace(
                     " ", "_"
@@ -62,6 +64,7 @@ def infer_version(settings, default_url="http://hl7.org/fhir/index.html"):
                     )
                 )
 
+                settings.sequence = ver.Sequence
                 settings.specification_url = ver.Link
                 settings.path_safe_version = ver.Version.replace(".", "_").replace(
                     " ", "_"
@@ -72,6 +75,7 @@ def infer_version(settings, default_url="http://hl7.org/fhir/index.html"):
         )
         for ver in versions:
             if default_url == ver.Link:
+                settings.sequence = ver.Sequence
                 settings.specification_url = ver.Link
                 settings.specification_version = ver.Version
                 settings.path_safe_version = ver.Version.replace(".", "_").replace(
@@ -79,13 +83,25 @@ def infer_version(settings, default_url="http://hl7.org/fhir/index.html"):
                 )
     return settings
 
+
+def execute_process(force_download, force_cache, load_only, dry, settings):
+    loader = fhirloader.FHIRLoader(settings, _cache)
+    spec_source = loader.load(force_download=force_download, force_cache=force_cache)
+
+    # parse
+    if not load_only:
+        spec = fhirspec.FHIRSpec(spec_source, settings)
+        if not dry:
+            spec.write()
+
+
 if "__main__" == __name__:
     parser = argparse.ArgumentParser("Generate the FHIR Models")
     parser.add_argument(
         "-f",
         default=False,
         action="store_true",
-        dest="force",
+        dest="force_download",
         help="Force rebuild of models",
     )
     parser.add_argument(
@@ -95,6 +111,14 @@ if "__main__" == __name__:
         action="store_true",
         dest="dry",
         help="Load and parse but not write resources",
+    )
+    parser.add_argument(
+        "-c",
+        "--cache-only",
+        default=False,
+        action="store_true",
+        dest="force_cache",
+        help="force using the cached spec (incompatible with \"-f\")",
     )
     parser.add_argument(
         "-l",
@@ -140,11 +164,16 @@ if "__main__" == __name__:
 
     opts = parser.parse_args()
 
+    if opts.force_download and opts.force_cache:
+        print("Can't Force Redownload and Use cache only")
+        sys.exit(1)
     if opts.list_only:
         versions = fhirdirectory.get_versions()
         for version in versions:
             print("{} - {}".format(version.Version, version.Description))
         sys.exit(0)
+
+    # Turn a Path into a Module
     if os.sep in opts.settings:
         _settings = opts.settings.replace(os.sep, ".")
     else:
@@ -164,18 +193,12 @@ if "__main__" == __name__:
             if opts.output:
                 # overwrite the target_base to point the output elsewhere
                 settings.target_base = opts.output
-
+            execute_process(force_download=opts.force_download,
+                            force_cache=opts.force_cache,
+                            dry=opts.dry,
+                            load_only=opts.load_only,
+                            settings=settings)
             # assure we have all files
-            logger.info("Settings: Base URL: {} - Version: {}".format(settings.specification_url,
-                                                                settings.specification_version))
-            loader = fhirloader.FHIRLoader(settings, _cache)
-            spec_source = loader.load(opts.force)
-
-            # parse
-            if not opts.load_only:
-                spec = fhirspec.FHIRSpec(spec_source, settings)
-                if not opts.dry:
-                    spec.write()
             del settings
     else:
         settings = importlib.import_module(_settings)
@@ -186,11 +209,8 @@ if "__main__" == __name__:
             settings.target_base = opts.output
 
         # assure we have all files
-        loader = fhirloader.FHIRLoader(settings, _cache)
-        spec_source = loader.load(opts.force)
-
-        # parse
-        if not opts.load_only:
-            spec = fhirspec.FHIRSpec(spec_source, settings)
-            if not opts.dry:
-                spec.write()
+        execute_process(force_download=opts.force_download,
+                        force_cache=opts.force_cache,
+                        dry=opts.dry,
+                        load_only=opts.load_only,
+                        settings=settings)
